@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roulette — Elite Edition</title>
+<style>
+  :root{
+    --bg:#07030f; --panel:#120a24; --line:#3b1f6e; --neon:#b66cff; --neon2:#e0b6ff; --text:#efe6ff; --muted:#9b86c4;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; color:var(--text); font-family:"Segoe UI",system-ui,sans-serif;
+    background:radial-gradient(ellipse at top,#1d0b3d 0%,var(--bg) 60%); overflow-x:hidden;
+  }
+  #petals{position:fixed;inset:0;pointer-events:none;z-index:0}
+  header{position:relative;z-index:1;text-align:center;padding:22px 12px 4px}
+  .logo{width:120px;height:120px;border-radius:50%;object-fit:cover;box-shadow:0 0 30px var(--neon);border:2px solid var(--neon)}
+  .logo-fallback{display:none;font-size:56px;font-weight:900;letter-spacing:8px;color:#fff;text-shadow:0 0 12px var(--neon),0 0 30px var(--neon)}
+  h1{margin:10px 0 0;font-size:28px;letter-spacing:3px;text-transform:uppercase;text-shadow:0 0 14px var(--neon)}
+  h1 span{color:var(--neon2)}
+  .sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+  main{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:24px;justify-content:center;align-items:flex-start;padding:20px;max-width:1150px;margin:0 auto}
+  .card{background:rgba(18,10,36,.85);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 0 24px rgba(182,108,255,.15);backdrop-filter:blur(4px)}
+  .wheel-card{flex:1 1 440px;max-width:560px;text-align:center}
+  .side{flex:1 1 320px;max-width:420px;display:flex;flex-direction:column;gap:16px}
+  .wheel-wrap{position:relative;width:100%;max-width:500px;margin:0 auto}
+  canvas{width:100%;height:auto;display:block;filter:drop-shadow(0 0 18px rgba(182,108,255,.55))}
+  .pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;
+    border-left:16px solid transparent;border-right:16px solid transparent;border-top:34px solid var(--neon2);
+    filter:drop-shadow(0 0 8px var(--neon));z-index:2}
+  button{font:inherit;cursor:pointer;border:1px solid var(--neon);color:var(--text);background:#1c0f3a;border-radius:10px;padding:10px 16px;transition:.15s}
+  button:hover{background:#2a1659;box-shadow:0 0 14px var(--neon)}
+  button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .spin{margin-top:16px;font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase;padding:14px 38px;
+    background:linear-gradient(135deg,#7a2dff,#b66cff);border:none;box-shadow:0 0 22px var(--neon)}
+  .spin:hover{background:linear-gradient(135deg,#8d45ff,#c98cff)}
+  h2{margin:0 0 10px;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--neon2)}
+  textarea,input[type=text]{width:100%;background:#0b0618;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;outline:none}
+  textarea:focus,input[type=text]:focus{border-color:var(--neon);box-shadow:0 0 10px rgba(182,108,255,.5)}
+  textarea{min-height:170px;resize:vertical}
+  .row{display:flex;gap:8px;margin-bottom:8px}
+  .row input{flex:1}
+  .meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--muted);font-size:13px;flex-wrap:wrap;gap:6px}
+  .opts label{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px;cursor:pointer}
+  .opts input{accent-color:#b66cff;width:17px;height:17px}
+  ol{margin:0;padding-left:22px;max-height:170px;overflow:auto;font-size:14px}
+  ol li{margin:3px 0}
+  .empty{color:var(--muted);font-size:14px}
+  .small{padding:6px 10px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,2,12,.8);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+  .modal.show{display:flex}
+  .modal .box{background:#140a2b;border:2px solid var(--neon);border-radius:20px;padding:30px 26px;text-align:center;max-width:440px;width:100%;
+    box-shadow:0 0 50px var(--neon);animation:pop .35s ease}
+  @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal .lbl{color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-size:13px}
+  .modal .win{font-size:38px;font-weight:900;margin:10px 0 6px;word-break:break-word;text-shadow:0 0 18px var(--neon)}
+  .modal .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+  .foot{position:relative;z-index:1;text-align:center;color:var(--muted);font-size:12px;padding:10px 0 24px}
+</style>
+</head>
+<body>
+<canvas id="petals"></canvas>
+
+<header>
+  <img class="logo" id="logo" src="logo-elt.png" alt="ELT"
+       onerror="this.style.display='none';document.getElementById('lf').style.display='block'">
+  <div class="logo-fallback" id="lf">ELT</div>
+  <h1>Roulette <span>Elite Edition</span></h1>
+  <p class="sub">Ajoute les noms, lance la roue, laisse le destin choisir.</p>
+</header>
+
+<main>
+  <section class="card wheel-card">
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="1000" height="1000"></canvas>
+    </div>
+    <button class="spin" id="spinBtn">Lancer la roue</button>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h2>Participants</h2>
+      <div class="row">
+        <input type="text" id="oneName" placeholder="Ajouter un nom puis Entrée" maxlength="40">
+        <button id="addBtn">+</button>
+      </div>
+      <textarea id="names" placeholder="Un nom par ligne..."></textarea>
+      <div class="meta">
+        <span id="count">0 nom</span>
+        <span>
+          <button class="small" id="shuffleBtn">Mélanger</button>
+          <button class="small" id="clearBtn">Vider</button>
+        </span>
+      </div>
+    </div>
+
+    <div class="card opts">
+      <h2>Options Elite</h2>
+      <label><input type="checkbox" id="optElim"> Mode élimination (retirer le gagnant automatiquement)</label>
+      <label><input type="checkbox" id="optSound" checked> Sons</label>
+      <label><input type="checkbox" id="optConfetti" checked> Effet pétales à la victoire</label>
+    </div>
+
+    <div class="card">
+      <h2>Historique des tirages</h2>
+      <ol id="history"></ol>
+      <p class="empty" id="histEmpty">Aucun tirage pour le moment.</p>
+      <div class="meta"><span></span><button class="small" id="clearHist">Effacer l'historique</button></div>
+    </div>
+  </aside>
+</main>
+
+<div class="foot">ELT | Elite Leaders Community</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <div class="lbl">Joueur sélectionné</div>
+    <div class="win" id="winner"></div>
+    <div class="acts">
+      <button id="keepBtn">Garder dans la roue</button>
+      <button id="removeBtn">Retirer de la roue</button>
+      <button id="againBtn" style="background:linear-gradient(135deg,#7a2dff,#b66cff);border:none">Relancer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const wheel = $('wheel'), ctx = wheel.getContext('2d');
+  const namesEl = $('names'), spinBtn = $('spinBtn');
+  const COLORS = ['#4b1a99','#7a2dff','#2c0f63','#a24bff','#3a1480','#8f3dff','#5a22b8','#c07bff'];
+  let rotation = 0, spinning = false, lastWinner = null;
+  let history = [];
+
+  // ---------- stockage ----------
+  function save(){
+    try{
+      localStorage.setItem('elt_roulette', JSON.stringify({
+        names: namesEl.value, history,
+        elim: $('optElim').checked, sound: $('optSound').checked, confetti: $('optConfetti').checked
+      }));
+    }catch(e){}
+  }
+  function load(){
+    try{
+      const d = JSON.parse(localStorage.getItem('elt_roulette')||'null');
+      if(!d) return;
+      namesEl.value = d.names || '';
+      history = d.history || [];
+      $('optElim').checked = !!d.elim;
+      $('optSound').checked = d.sound !== false;
+      $('optConfetti').checked = d.confetti !== false;
+    }catch(e){}
+  }
+
+  function getNames(){
+    return namesEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  }
+  function setNames(arr){ namesEl.value = arr.join('\n'); refresh(); }
+
+  // ---------- dessin ----------
+  function draw(){
+    const names = getNames(), W = wheel.width, R = W/2 - 14, c = W/2;
+    ctx.clearRect(0,0,W,W);
+    ctx.save();
+    ctx.translate(c,c);
+    ctx.rotate(rotation);
+    if(names.length === 0){
+      ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2);
+      ctx.fillStyle = '#1a0d38'; ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#b9a3e6'; ctx.font = '700 38px Segoe UI, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Ajoute des noms', c, c);
+    } else {
+      const a = Math.PI*2/names.length;
+      names.forEach((n,i)=>{
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,R,i*a,(i+1)*a); ctx.closePath();
+        ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+        ctx.strokeStyle = 'rgba(224,182,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.save();
+        ctx.rotate(i*a + a/2);
+        ctx.textAlign = 'right'; ctx.fillStyle = '#fff';
+        const size = Math.max(18, Math.min(44, 360/Math.max(names.length,6)*1.6));
+        ctx.font = '700 ' + size + 'px Segoe UI, sans-serif';
+        ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+        let t = n; const maxW = R - 110;
+        while(ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0,-2);
+        if(t !== n) t += '…';
+        ctx.fillText(t, R - 30, size/3);
+        ctx.restore();
+      });
+      ctx.restore();
+    }
+    // centre
+    ctx.save(); ctx.translate(c,c);
+    ctx.beginPath(); ctx.arc(0,0,62,0,Math.PI*2);
+    ctx.fillStyle = '#0d0620'; ctx.fill();
+    ctx.lineWidth = 6; ctx.strokeStyle = '#b66cff'; ctx.shadowColor = '#b66cff'; ctx.shadowBlur = 22; ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#efe6ff'; ctx.font = '900 40px Segoe UI, sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('ELT', 0, 14);
+    ctx.restore();
+    // anneau
+    ctx.beginPath(); ctx.arc(c,c,R+4,0,Math.PI*2);
+    ctx.lineWidth = 8; ctx.strokeStyle = '#b66cff'; ctx.stroke();
+  }
+
+  function refresh(){
+    const n = getNames().length;
+    $('count').textContent = n + (n>1 ? ' noms' : ' nom');
+    spinBtn.disabled = spinning || n < 2;
+    draw(); save();
+  }
+
+  // ---------- sons ----------
+  let actx = null;
+  function beep(freq, dur, vol){
+    if(!$('optSound').checked) return;
+    try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'triangle'; o.frequency.value = freq;
+      g.gain.value = vol; g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+    }catch(e){}
+  }
+  function fanfare(){
+    [523,659,784,1047].forEach((f,i)=> setTimeout(()=>beep(f,.35,.12), i*130));
+  }
+
+  // ---------- tirage ----------
+  function spin(){
+    const names = getNames();
+    if(spinning || names.length < 2) return;
+    spinning = true; spinBtn.disabled = true;
+    const n = names.length, a = Math.PI*2/n;
+    const idx = Math.floor(Math.random()*n);
+    const jitter = (Math.random()-0.5)*a*0.7;
+    const desired = -Math.PI/2 - (idx+0.5)*a + jitter;
+    const cur = ((rotation % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+    let delta = ((desired - cur) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+    delta += Math.PI*2*(6 + Math.floor(Math.random()*3));
+    const start = rotation, dur = 6500, t0 = performance.now();
+    let lastTick = Math.floor((start + Math.PI/2) / a);
+    function frame(t){
+      const p = Math.min(1,(t-t0)/dur);
+      const e = 1 - Math.pow(1-p,4);
+      rotation = start + delta*e;
+      const tick = Math.floor((-rotation - Math.PI/2) / a);
+      if(tick !== lastTick){ lastTick = tick; beep(700 + Math.random()*120, .05, .06); }
+      draw();
+      if(p < 1) requestAnimationFrame(frame);
+      else finish(names[idx]);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(name){
+    spinning = false; lastWinner = name;
+    history.unshift(name); if(history.length > 50) history.pop();
+    renderHistory();
+    $('winner').textContent = name;
+    $('removeBtn').style.display = $('optElim').checked ? 'none' : '';
+    $('keepBtn').textContent = $('optElim').checked ? 'OK' : 'Garder dans la roue';
+    $('modal').classList.add('show');
+    fanfare();
+    if($('optConfetti').checked) burst();
+    if($('optElim').checked){
+      const arr = getNames(), i = arr.indexOf(name);
+      if(i > -1){ arr.splice(i,1); namesEl.value = arr.join('\n'); }
+    }
+    refresh();
+  }
+
+  function renderHistory(){
+    const ol = $('history'); ol.innerHTML = '';
+    history.forEach(h => { const li = document.createElement('li'); li.textContent = h; ol.appendChild(li); });
+    $('histEmpty').style.display = history.length ? 'none' : '';
+    save();
+  }
+
+  // ---------- pétales ----------
+  const pc = $('petals'), px = pc.getContext('2d');
+  let petals = [];
+  function sizeP(){ pc.width = innerWidth; pc.height = innerHeight; }
+  addEventListener('resize', sizeP); sizeP();
+  function mk(x,y,burst){
+    return {x, y, r: 4+Math.random()*6, vx: burst ? (Math.random()-0.5)*10 : -0.3+Math.random()*0.6,
+      vy: burst ? -Math.random()*10-2 : 0.4+Math.random()*0.9, rot: Math.random()*6, vr: (Math.random()-0.5)*0.08,
+      life: burst ? 140 : Infinity, burst};
+  }
+  for(let i=0;i<28;i++) petals.push(mk(Math.random()*innerWidth, Math.random()*innerHeight,false));
+  function burst(){ for(let i=0;i<110;i++) petals.push(mk(innerWidth/2, innerHeight/2.2, true)); }
+  function loopP(){
+    px.clearRect(0,0,pc.width,pc.height);
+    petals.forEach(p=>{
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if(p.burst){ p.vy += 0.25; p.life--; }
+      else { p.x += Math.sin(p.y/60)*0.4; if(p.y > pc.height+10){ p.y = -10; p.x = Math.random()*pc.width; } }
+      px.save(); px.translate(p.x,p.y); px.rotate(p.rot);
+      px.globalAlpha = p.burst ? Math.max(0,p.life/140) : 0.55;
+      px.fillStyle = '#d9a6ff';
+      px.beginPath(); px.ellipse(0,0,p.r,p.r*0.6,0,0,Math.PI*2); px.fill();
+      px.restore();
+    });
+    petals = petals.filter(p => p.life > 0);
+    requestAnimationFrame(loopP);
+  }
+  loopP();
+
+  // ---------- événements ----------
+  spinBtn.onclick = spin;
+  namesEl.addEventListener('input', refresh);
+  ['optElim','optSound','optConfetti'].forEach(id => $(id).addEventListener('change', save));
+  function addOne(){
+    const v = $('oneName').value.trim();
+    if(!v) return;
+    const arr = getNames(); arr.push(v); setNames(arr);
+    $('oneName').value = ''; $('oneName').focus();
+  }
+  $('addBtn').onclick = addOne;
+  $('oneName').addEventListener('keydown', e => { if(e.key === 'Enter') addOne(); });
+  $('shuffleBtn').onclick = () => {
+    const a = getNames();
+    for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; }
+    setNames(a);
+  };
+  $('clearBtn').onclick = () => { if(!getNames().length || confirm('Vider la liste des noms ?')) setNames([]); };
+  $('clearHist').onclick = () => { history = []; renderHistory(); };
+  $('keepBtn').onclick = () => $('modal').classList.remove('show');
+  $('removeBtn').onclick = () => {
+    const arr = getNames(), i = arr.indexOf(lastWinner);
+    if(i > -1) arr.splice(i,1);
+    setNames(arr); $('modal').classList.remove('show');
+  };
+  $('againBtn').onclick = () => { $('modal').classList.remove('show'); setTimeout(spin, 200); };
+
+  load(); renderHistory(); refresh();
+})();
+</script>
+</body>
+</html>
